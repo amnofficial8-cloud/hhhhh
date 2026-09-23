@@ -486,11 +486,9 @@ function PasscodeStage({ onUnlock }) {
 }
 
 /* ---------- final letter ---------- */
-const LETTER = `I just want to say I'm genuinely sorry for how I handled everything, and for not taking the time to hear your side and actually listen to you. Instead I listened to what other people were saying, and I let their words affect the way I saw the situation  and that was wrong of me. I should have come to you and heard everything from you before making any assumptions.
+const LETTER = `I am sorry. I did not listen to you. I listened to other people instead. That was wrong. I should have come to you first, before I believed what other people said.
 
-I know I can't change what happened, but I want you to know that I still have feelings for you, and I still care about you a lot. I still want to be able to talk to you, and maybe have a conversation about everything. But if you've already moved on, or you have someone else in your life, I completely respect that and I won't try to get in the way of it.
-
-I'm not saying any of this to pressure you or expect anything from you. I just feel like you deserve to know how I truly feel. And I'm genuinely sorry for not listening to you when I should have.`;
+I cannot change what happened. But I want you to know this: I still have feelings for you. I still care about you a lot. I want to talk to you again, if you want that too. But if you already moved on, or you have someone else now, I understand. I will not get in the way.`;
 function ApologyLetter({ onRestart }) {
   useEffect(() => {
     if (window.__letterSession) window.__letterSession.saveLetterViewed();
