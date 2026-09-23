@@ -1,1 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>For You — A Letter From Promedi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { bg: '#0D070B', card: '#1A1017', brd: '#381E2B', accent: '#E62E5C', pink: '#FF85A1', cream: '#FFF2F5', muted: '#9E828E', dim: '#5a4750' },
+        fontFamily: { display: ['"Cormorant Garamond"','serif'], body: ['"Plus Jakarta Sans"','sans-serif'] },
+        borderRadius: { '2xl': '1rem', '3xl': '1.5rem' },
+      }
+    }
+  }
+</script>
+<style>
+  :root { color-scheme: dark; }
+  body { background-color: #0D070B; margin: 0; }
+  .font-display { font-family: "Cormorant Garamond", serif; }
+  .font-body { font-family: "Plus Jakarta Sans", sans-serif; }
+  .glow-crimson { box-shadow: 0 0 0 1px rgba(230,46,92,.35), 0 0 40px -8px rgba(230,46,92,.55), 0 0 120px -40px rgba(230,46,92,.4); }
+  .glow-soft { box-shadow: 0 0 60px -20px rgba(255,133,161,.45); }
+  .text-glow { text-shadow: 0 0 30px rgba(230,46,92,.5); }
+  .glass { background: linear-gradient(160deg, rgba(26,16,23,.92), rgba(13,7,11,.85)); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #381E2B; border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
 
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); filter: blur(6px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+  @keyframes pulseScale { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-10px); } 80% { transform: translateX(10px); } }
+  @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+
+  .anim-fadeUp { animation: fadeUp .7s ease-out both; }
+  .anim-fadeIn { animation: fadeIn .5s ease-out both; }
+  .anim-popIn { animation: popIn .5s cubic-bezier(.34,1.56,.64,1) both; }
+  .anim-pulse { animation: pulseScale 1.8s ease-in-out infinite; }
+  .anim-pulse-fast { animation: pulseScale 1.6s ease-in-out infinite; }
+  .anim-shake { animation: shake .4s ease-in-out; }
+  .anim-slideIn { animation: slideInRight .35s ease-out both; }
+
+  .step-fill { transition: width .5s ease; }
+  .progress-fill { transition: width .4s ease; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Firebase (v10 modular, via CDN). Writes progress/answers to Firestore as the page is used. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getFirestore, doc, setDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  // TODO: replace with your Firebase project config (Firebase console > Project settings > General > Your apps > SDK setup and config)
+  const firebaseConfig = {
+    apiKey: "AIzaSyASx65vcnHFbI1Xn_LiX2g1HsWHzr5VGxE",
+    authDomain: "dash-ba3b9.firebaseapp.com",
+    projectId: "dash-ba3b9",
+    storageBucket: "dash-ba3b9.firebasestorage.app",
+    messagingSenderId: "1095249845311",
+    appId: "1:1095249845311:web:ec979faba78251a75c2c8a"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // One session id per visit, kept for the life of the tab only (no persistent tracking across visits).
+  const sessionId = crypto.randomUUID();
+  const sessionRef = doc(db, "letter_sessions", sessionId);
+  const t0 = Date.now();
+  let stageStart = t0;
+
+  function elapsedSinceStage() {
+    const ms = Date.now() - stageStart;
+    stageStart = Date.now();
+    return ms;
+  }
+
+  // Exposed to the React app below (babel/non-module script) via window.
+  window.__letterSession = {
+    id: sessionId,
+
+    init: async () => {
+      try {
+        await setDoc(sessionRef, {
+          startedAt: serverTimestamp(),
+          startedAtClient: new Date(t0).toISOString(),
+          userAgent: navigator.userAgent,
+          status: "started"
+        }, { merge: true });
+      } catch (e) { console.error("Firestore init failed", e); }
+    },
+
+    saveQuiz: async (score, total, answers) => {
+      try {
+        await setDoc(sessionRef, {
+          quiz: {
+            score, total, answers,
+            timeSpentMs: elapsedSinceStage(),
+            completedAt: serverTimestamp()
+          },
+          status: "quiz_done",
+          lastUpdatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) { console.error("Firestore saveQuiz failed", e); }
+    },
+
+    saveReflections: async (answers) => {
+      try {
+        await setDoc(sessionRef, {
+          reflections: {
+            ...answers,
+            timeSpentMs: elapsedSinceStage(),
+            completedAt: serverTimestamp()
+          },
+          status: "reflections_done",
+          lastUpdatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) { console.error("Firestore saveReflections failed", e); }
+    },
+
+    saveFinalQuestions: async (answers) => {
+      try {
+        await setDoc(sessionRef, {
+          finalQuestions: {
+            ...answers,
+            timeSpentMs: elapsedSinceStage(),
+            completedAt: serverTimestamp()
+          },
+          status: "final_questions_done",
+          lastUpdatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) { console.error("Firestore saveFinalQuestions failed", e); }
+    },
+
+    savePasscodeAttempt: async (correct, attemptCount) => {
+      try {
+        await setDoc(sessionRef, {
+          passcode: {
+            attempts: attemptCount,
+            lastAttemptCorrect: correct,
+            ...(correct ? { unlockedAt: serverTimestamp(), timeSpentMs: elapsedSinceStage() } : {})
+          },
+          status: correct ? "unlocked" : "passcode_in_progress",
+          lastUpdatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) { console.error("Firestore savePasscodeAttempt failed", e); }
+    },
+
+    saveLetterViewed: async () => {
+      try {
+        await setDoc(sessionRef, {
+          letterViewedAt: serverTimestamp(),
+          totalTimeMs: Date.now() - t0,
+          status: "completed",
+          lastUpdatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) { console.error("Firestore saveLetterViewed failed", e); }
+    }
+  };
+
+  window.__letterSession.init();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+/* ---------- tiny inline icons (no external deps) ---------- */
+const Heart = ({ className, fill }) => (
+  <svg className={className} viewBox="0 0 24 24" fill={fill || "none"} stroke="currentColor" strokeWidth="2">
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+  </svg>
+);
+const Check = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+const X = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="M18 6 6 18M6 6l12 12" />
+  </svg>
+);
+const ChevronRight = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+const Lock = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="4" y="10" width="16" height="10" rx="2" />
+    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+  </svg>
+);
+const Delete = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 4H8l-6 8 6 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" />
+    <path d="m14 9-4 6M10 9l4 6" />
+  </svg>
+);
+
+/* ---------- intro ---------- */
+const LINES = ["Hey you…", "I made this for you.", "Before anything else —", "take a breath, and stay with me for a minute."];
+function IntroStage({ onBegin }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (shown < LINES.length) { const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 700 : 1100); return () => clearTimeout(t); }
+  }, [shown]);
+  return (
+    <div className="flex flex-col items-center justify-center text-center min-h-[60vh] py-8">
+      <div className="anim-popIn mb-8">
+        <div className="anim-pulse w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-[#E62E5C] to-[#FF85A1] flex items-center justify-center glow-crimson">
+          <Heart className="w-7 h-7 sm:w-9 sm:h-9 text-white" fill="white" />
+        </div>
+      </div>
+      <div className="space-y-3 sm:space-y-4 min-h-[180px] sm:min-h-[200px] flex flex-col justify-center">
+        {LINES.slice(0, shown).map((line, i) => (
+          <p key={i} className={`anim-fadeUp font-display ${i === 0 ? 'text-3xl sm:text-5xl text-[#FFF2F5] text-glow' : i === LINES.length - 1 ? 'text-lg sm:text-2xl text-[#FF85A1] italic' : 'text-xl sm:text-3xl text-[#FFF2F5]'}`}>
+            {line}
+          </p>
+        ))}
+      </div>
+      {shown >= LINES.length && (
+        <div className="anim-fadeUp mt-10">
+          <button onClick={onBegin} className="group relative px-10 py-4 rounded-full bg-gradient-to-r from-[#E62E5C] to-[#FF85A1] text-white font-semibold tracking-wide glow-crimson hover:scale-[1.03] active:scale-95 transition-transform">
+            Let's begin <span className="ml-2 inline-block group-hover:translate-x-1 transition-transform">→</span>
+          </button>
+          <p className="mt-4 text-xs text-[#9E828E] tracking-widest uppercase">A little journey I built just for you</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- trivia quiz ---------- */
+const QUESTIONS = [
+  { q: "What's my full name?", options: ["Promedi Ngimbi","Promedi Kalonji","Promedi Mbiya","Promedi Kasoma"], answer: "Promedi Ngimbi" },
+  { q: "When is my birthday?", options: ["November 6","October 6","November 9","December 6"], answer: "November 6" },
+  { q: "My favorite colors?", options: ["Red & Pink","Blue & Black","Green & Gold","Purple & White"], answer: "Red & Pink" },
+  { q: "My favorite food?", options: ["Poulet mayo","Poulet moambé","Fufu & goat","Riz sauce"], answer: "Poulet mayo" },
+  { q: "My dream car?", options: ["Lamborghini Urus","Lamborghini Aventador","Ferrari Roma","Bentley Bentayga"], answer: "Lamborghini Urus" },
+  { q: "My other dream car?", options: ["Porsche GT3 RS","Porsche Taycan","McLaren 720S","AMG GT R"], answer: "Porsche GT3 RS" },
+  { q: "My favorite shoes?", options: ["Jordan 4","Jordan 1","Nike Dunks","Yeezy 350"], answer: "Jordan 4" },
+  { q: "My favorite brand?", options: ["Nike","Adidas","Puma","Off-White"], answer: "Nike" },
+  { q: "The name of our future child?", options: ["Isaiah","Elias","Ethan","Isaac"], answer: "Isaiah" },
+  { q: "One thing I love to do?", options: ["Video games & music","Play soccer","Cook","Draw"], answer: "Video games & music" },
+  { q: "My favorite superhero?", options: ["Spiderman","Batman","Superman","Iron Man"], answer: "Spiderman" },
+  { q: "My favorite Congolese artists?", options: ["Mike Kalambay & Christian Mukuna","Fally Ipupa & Ferre Gola","Werrason & JB Mpiana","Innoss'B & Gaz Mawete"], answer: "Mike Kalambay & Christian Mukuna" },
+  { q: "My favorite drummer?", options: ["Martin Kasoma","Bernard Purdie","Buddy Rich","Questlove"], answer: "Martin Kasoma" },
+  { q: "My favorite streamer?", options: ["Kai Cenat","iShowSpeed","Adin Ross","xQc"], answer: "Kai Cenat" },
+  { q: "My favorite music style?", options: ["Seben","Rumba","Afrobeats","Drill"], answer: "Seben" },
+  { q: "My nickname?", options: ["Rkay","Pro","Madi","Kay"], answer: "Rkay" },
+  { q: "My first ever school in America?", options: ["Bunger Middle School","Lincoln Middle","Jefferson High","East Middle School"], answer: "Bunger Middle School" },
+  { q: "My favorite basketball player?", options: ["LeBron James","Stephen Curry","Kobe Bryant","Kevin Durant"], answer: "LeBron James" },
+  { q: "My favorite day of the week?", options: ["Friday","Saturday","Sunday","Wednesday"], answer: "Friday" },
+  { q: "My favorite game?", options: ["Fortnite","Call of Duty","Minecraft","2K"], answer: "Fortnite" },
+  { q: "My favorite fast food?", options: ["McDonald's","Wendy's","Burger King","Chick-fil-A"], answer: "McDonald's" },
+  { q: "My favorite drink?", options: ["Fanta","Coca-Cola","Sprite","Hawaiian Punch"], answer: "Fanta" },
+  { q: "My favorite instrument?", options: ["Drums","Guitar","Piano","Bass"], answer: "Drums" },
+  { q: "PS5 or Xbox?", options: ["PS5","Xbox"], answer: "PS5" },
+  { q: "PS5 or PC?", options: ["PC","PS5"], answer: "PC" },
+];
+function QuizStage({ onComplete }) {
+  const [idx, setIdx] = useState(0), [selected, setSelected] = useState(null), [locked, setLocked] = useState(false), [score, setScore] = useState(0);
+  const [log, setLog] = useState([]);
+  const total = QUESTIONS.length, current = QUESTIONS[idx], isLast = idx === total - 1;
+  const choose = (opt) => {
+    if (locked) return;
+    setSelected(opt); setLocked(true);
+    const correct = opt === current.answer;
+    if (correct) setScore(s => s + 1);
+    setLog(l => [...l, { question: current.q, selected: opt, correct }]);
+  };
+  const next = () => {
+    if (isLast) { onComplete(score, total, log); return; }
+    setIdx(i => i + 1); setSelected(null); setLocked(false);
+  };
+  return (
+    <div className="flex flex-col items-center w-full">
+      <div className="w-full flex items-center justify-between mb-5 text-xs text-[#9E828E] tracking-widest uppercase">
+        <span>Question {idx + 1} / {total}</span><span className="text-[#FF85A1]">Score: {score}</span>
+      </div>
+      <div className="w-full h-1 bg-[#381E2B] rounded-full mb-7 overflow-hidden">
+        <div className="progress-fill h-full bg-gradient-to-r from-[#E62E5C] to-[#FF85A1]" style={{ width: `${((idx + (locked ? 1 : 0)) / total) * 100}%` }} />
+      </div>
+      <div key={idx} className="anim-slideIn w-full">
+        <h3 className="font-display text-2xl sm:text-3xl text-[#FFF2F5] text-center mb-6 leading-snug">{current.q}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {current.options.map((opt) => {
+            const isCorrect = opt === current.answer, isPicked = opt === selected;
+            const showCorrect = locked && isCorrect, showWrong = locked && isPicked && !isCorrect;
+            return (
+              <button key={opt} onClick={() => choose(opt)} disabled={locked}
+                className={`relative text-left px-5 py-4 rounded-2xl border transition-all duration-200 ${showCorrect ? 'border-[#E62E5C] bg-[#E62E5C]/15 text-[#FFF2F5]' : showWrong ? 'border-[#9E828E]/40 bg-[#9E828E]/10 text-[#FFF2F5]/70' : locked ? 'border-[#381E2B] text-[#9E828E]/60' : 'border-[#381E2B] text-[#FFF2F5] hover:border-[#E62E5C]/60 hover:bg-[#E62E5C]/5'}`}>
+                <span className="text-sm sm:text-base">{opt}</span>
+                {showCorrect && <Check className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#E62E5C]" />}
+                {showWrong && <X className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E828E]" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {locked && (
+        <div className="anim-fadeUp w-full mt-7 flex flex-col items-center">
+          <p className={`text-sm mb-4 ${selected === current.answer ? 'text-[#FF85A1]' : 'text-[#9E828E]'}`}>
+            {selected === current.answer ? "You know me well 💫" : `It's actually — ${current.answer}`}
+          </p>
+          <button onClick={next} className="px-8 py-3 rounded-full bg-[#E62E5C] text-white font-semibold flex items-center gap-2 glow-crimson hover:scale-[1.03] active:scale-95 transition-transform">
+            {isLast ? "See your score" : "Next"} <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- reflections ---------- */
+const PROMPTS = [
+  { key: "like", label: "What do you like about me?", placeholder: "Tell me in your own words…" },
+  { key: "memory", label: "What is your favorite memory about us?", placeholder: "The one you keep going back to…" },
+  { key: "learned", label: "What's one thing you learned about our relationship?", placeholder: "Something real you realized…" },
+  { key: "wish", label: "What's one wish you have that you never told me?", placeholder: "You can say it now, it's safe here…" },
+];
+function ReflectionsStage({ onComplete }) {
+  const [answers, setAnswers] = useState({});
+  const allFilled = PROMPTS.every(p => (answers[p.key] || "").trim().length > 0);
+  return (
+    <div className="w-full">
+      <div className="text-center mb-7">
+        <h3 className="font-display text-3xl sm:text-4xl text-[#FFF2F5] text-glow mb-2">Your Reflections</h3>
+        <p className="text-sm text-[#9E828E]">No rush. Take your time with each one.</p>
+      </div>
+      <div className="space-y-5">
+        {PROMPTS.map((p, i) => (
+          <div key={p.key} className="anim-fadeUp" style={{ animationDelay: `${i * 0.1}s` }}>
+            <label className="block font-display text-lg sm:text-xl text-[#FF85A1] mb-2">{p.label}</label>
+            <textarea value={answers[p.key] || ""} onChange={e => setAnswers(a => ({ ...a, [p.key]: e.target.value }))} placeholder={p.placeholder} rows={3}
+              className="w-full px-4 py-3 rounded-2xl bg-[#0D070B]/60 border border-[#381E2B] focus:border-[#E62E5C] focus:ring-1 focus:ring-[#E62E5C] outline-none text-[#FFF2F5] text-base placeholder:text-[#5a4750] resize-none transition-colors" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 flex flex-col items-center">
+        <button onClick={() => onComplete(answers)} disabled={!allFilled}
+          className={`px-8 py-3.5 rounded-full font-semibold flex items-center gap-2 transition-all ${allFilled ? 'bg-gradient-to-r from-[#E62E5C] to-[#FF85A1] text-white glow-crimson hover:scale-[1.03] active:scale-95' : 'bg-[#381E2B] text-[#5a4750] cursor-not-allowed'}`}>
+          Continue <ChevronRight className="w-4 h-4" />
+        </button>
+        {!allFilled && <p className="mt-3 text-xs text-[#5a4750]">Answer all four to move on</p>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- final yes/no questions ---------- */
+const FQ = [
+  { key: "restart", text: "If we had to restart from zero, would you say yes?" },
+  { key: "miss", text: "Do you miss our relationship?" },
+  { key: "love", text: "Do you still love me?" },
+  { key: "want", text: "Do you still want me?" },
+];
+function FinalQuestionsStage({ onComplete }) {
+  const [answers, setAnswers] = useState({});
+  const allAnswered = FQ.every(q => answers[q.key] !== undefined);
+  return (
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <h3 className="font-display text-3xl sm:text-4xl text-[#FFF2F5] text-glow mb-2">Just Yes or No</h3>
+        <p className="text-sm text-[#9E828E]">Be honest. I can take it.</p>
+      </div>
+      <div className="space-y-4">
+        {FQ.map((q, i) => (
+          <div key={q.key} className={`anim-fadeUp rounded-2xl border p-5 transition-colors ${answers[q.key] !== undefined ? 'border-[#E62E5C]/40 bg-[#E62E5C]/5' : 'border-[#381E2B] bg-[#0D070B]/40'}`} style={{ animationDelay: `${i * 0.08}s` }}>
+            <p className="font-display text-xl sm:text-2xl text-[#FFF2F5] mb-4 text-center">{q.text}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => setAnswers(a => ({ ...a, [q.key]: "yes" }))}
+                className={`px-8 py-3 rounded-full font-semibold transition-all ${answers[q.key] === "yes" ? 'bg-gradient-to-r from-[#E62E5C] to-[#FF85A1] text-white glow-crimson scale-105' : 'bg-[#1A1017] border border-[#381E2B] text-[#FFF2F5] hover:border-[#E62E5C]/50'}`}>Yes</button>
+              <button onClick={() => setAnswers(a => ({ ...a, [q.key]: "no" }))}
+                className={`px-8 py-3 rounded-full font-semibold transition-all ${answers[q.key] === "no" ? 'bg-[#9E828E] text-[#0D070B] scale-105' : 'bg-[#1A1017] border border-[#381E2B] text-[#FFF2F5] hover:border-[#9E828E]/50'}`}>No</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 flex flex-col items-center">
+        <button onClick={() => onComplete(answers)} disabled={!allAnswered}
+          className={`px-8 py-3.5 rounded-full font-semibold flex items-center gap-2 transition-all ${allAnswered ? 'bg-gradient-to-r from-[#E62E5C] to-[#FF85A1] text-white glow-crimson hover:scale-[1.03] active:scale-95' : 'bg-[#381E2B] text-[#5a4750] cursor-not-allowed'}`}>
+          One last thing <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- passcode vault ---------- */
+const CODE = "11062009";
+function PasscodeStage({ onUnlock }) {
+  const [entry, setEntry] = useState(""), [error, setError] = useState(false);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const press = (d) => {
+    if (entry.length >= 8) return;
+    const nextVal = entry + d; setEntry(nextVal); setError(false);
+    if (nextVal.length === 8) {
+      setTimeout(() => {
+        const correct = nextVal === CODE;
+        setAttemptCount(c => {
+          const newCount = c + 1;
+          if (window.__letterSession) window.__letterSession.savePasscodeAttempt(correct, newCount);
+          return newCount;
+        });
+        if (correct) onUnlock(); else { setError(true); setTimeout(() => setEntry(""), 600); }
+      }, 250);
+    }
+  };
+  const back = () => { setEntry(e => e.slice(0, -1)); setError(false); };
+  const keys = ["1","2","3","4","5","6","7","8","9","","0","del"];
+  return (
+    <div className="w-full flex flex-col items-center">
+      <div className="anim-popIn text-center mb-8">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#1A1017] border border-[#381E2B] flex items-center justify-center">
+          <Lock className="w-6 h-6 text-[#E62E5C]" />
+        </div>
+        <h3 className="font-display text-3xl sm:text-4xl text-[#FFF2F5] text-glow mb-2">Unlock the Vault</h3>
+        <p className="text-sm text-[#9E828E] max-w-xs">Type my whole birthday as one code — every digit, month then day then year.</p>
+      </div>
+      <div className={`flex gap-2.5 mb-8 ${error ? 'anim-shake text-[#E62E5C]' : ''}`}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors ${error ? 'border-[#E62E5C] bg-[#E62E5C]/10' : i < entry.length ? 'border-[#FF85A1] bg-[#E62E5C]/20' : 'border-[#381E2B]'}`}>
+            {i < entry.length && <div className="anim-popIn w-3 h-3 rounded-full bg-[#FF85A1]" />}
+          </div>
+        ))}
+      </div>
+      {error && <p className="anim-fadeIn text-sm text-[#E62E5C] mb-4">Not quite — try again</p>}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-[280px]">
+        {keys.map((k, i) => {
+          if (k === "") return <div key={i} />;
+          if (k === "del") return <button key={i} onClick={back} className="aspect-square rounded-2xl bg-[#1A1017] border border-[#381E2B] text-[#9E828E] flex items-center justify-center hover:border-[#E62E5C]/50 active:scale-95 transition-all"><Delete className="w-5 h-5" /></button>;
+          return <button key={i} onClick={() => press(k)} className="aspect-square rounded-2xl bg-[#1A1017] border border-[#381E2B] text-[#FFF2F5] text-xl sm:text-2xl font-display font-medium flex items-center justify-center hover:border-[#E62E5C]/60 hover:bg-[#E62E5C]/10 active:scale-95 transition-all">{k}</button>;
+        })}
+      </div>
+      <p className="mt-6 text-xs text-[#5a4750] tracking-wider">Hint: my birthday, all eight digits</p>
+    </div>
+  );
+}
+
+/* ---------- final letter ---------- */
+const LETTER = `I just want to say I'm genuinely sorry for how I handled everything, and for not taking the time to hear your side and actually listen to you. Instead I listened to what other people were saying, and I let their words affect the way I saw the situation — and that was wrong of me. I should have come to you and heard everything from you before making any assumptions.
+
+I know I can't change what happened, but I want you to know that I still have feelings for you, and I still care about you a lot. I still want to be able to talk to you, and maybe have a conversation about everything. But if you've already moved on, or you have someone else in your life, I completely respect that and I won't try to get in the way of it.
+
+I'm not saying any of this to pressure you or expect anything from you. I just feel like you deserve to know how I truly feel. And I'm genuinely sorry for not listening to you when I should have.`;
+function ApologyLetter({ onRestart }) {
+  useEffect(() => {
+    if (window.__letterSession) window.__letterSession.saveLetterViewed();
+  }, []);
+  return (
+    <div className="anim-fadeUp w-full max-w-2xl mx-auto">
+      <div className="glass rounded-3xl border border-[#E62E5C]/30 glow-crimson p-7 sm:p-10 relative overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-[#E62E5C]/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full bg-[#FF85A1]/15 blur-3xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex items-center justify-center mb-5">
+            <div className="anim-pulse-fast w-12 h-12 rounded-full bg-gradient-to-br from-[#E62E5C] to-[#FF85A1] flex items-center justify-center">
+              <Heart className="w-5 h-5 text-white" fill="white" />
+            </div>
+          </div>
+          <h2 className="font-display text-3xl sm:text-5xl text-center text-[#FFF2F5] text-glow mb-2">From me, to you</h2>
+          <p className="text-center text-xs text-[#FF85A1] tracking-[0.3em] uppercase mb-7">Read it slowly</p>
+          <div className="space-y-4">
+            {LETTER.split("\n\n").map((para, i) => (
+              <p key={i} className="anim-fadeUp font-body text-base sm:text-lg leading-relaxed text-[#FFF2F5]/90 first-letter:font-display first-letter:text-3xl first-letter:text-[#FF85A1] first-letter:mr-1"
+                style={{ animationDelay: `${0.5 + i * 0.4}s` }}>
+                {para}
+              </p>
+            ))}
+          </div>
+          <div className="anim-fadeIn mt-8 text-right" style={{ animationDelay: '2s' }}>
+            <p className="font-display text-xl text-[#FF85A1] italic">— Rkay</p>
+          </div>
+        </div>
+      </div>
+      <div className="anim-fadeIn mt-7 text-center" style={{ animationDelay: '2.4s' }}>
+        <p className="text-sm text-[#9E828E] mb-4">Thank you for staying with me to the end.</p>
+        <button onClick={onRestart} className="px-7 py-3 rounded-full border border-[#381E2B] text-[#FFF2F5] hover:border-[#E62E5C]/60 hover:bg-[#E62E5C]/5 transition-colors text-sm">Go back to the beginning</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- app shell ---------- */
+function Home() {
+  const [step, setStep] = useState(1), [unlocked, setUnlocked] = useState(false);
+  return (
+    <div className="min-h-screen w-full flex flex-col bg-[#0D070B] relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#E62E5C]/10 blur-[120px]" />
+        <div className="absolute bottom-[-15%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#FF85A1]/8 blur-[120px]" />
+        <div className="absolute top-1/3 right-1/4 w-[30vw] h-[30vw] rounded-full bg-[#E62E5C]/6 blur-[100px]" />
+      </div>
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
+        {!unlocked && (
+          <div key={step} className="anim-fadeIn w-full max-w-2xl glass rounded-3xl border border-[#381E2B] glow-soft p-6 sm:p-10">
+            {step === 1 && <IntroStage onBegin={() => setStep(2)} />}
+            {step === 2 && <QuizStage onComplete={(score, total, log) => { if (window.__letterSession) window.__letterSession.saveQuiz(score, total, log); setStep(3); }} />}
+            {step === 3 && <ReflectionsStage onComplete={(answers) => { if (window.__letterSession) window.__letterSession.saveReflections(answers); setStep(4); }} />}
+            {step === 4 && <FinalQuestionsStage onComplete={(answers) => { if (window.__letterSession) window.__letterSession.saveFinalQuestions(answers); setStep(5); }} />}
+            {step === 5 && <PasscodeStage onUnlock={() => setUnlocked(true)} />}
+          </div>
+        )}
+        {unlocked && (
+          <div key="letter" className="anim-fadeIn w-full py-4">
+            <ApologyLetter onRestart={() => { setUnlocked(false); setStep(1); }} />
+          </div>
+        )}
+      </div>
+      <p className="relative z-10 text-center text-[10px] text-[#5a4750] pb-4 tracking-widest uppercase">Made with care</p>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Home />);
+</script>
+</body>
+</html>
