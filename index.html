@@ -61,7 +61,6 @@
     getFirestore, doc, setDoc, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-  // TODO: replace with your Firebase project config (Firebase console > Project settings > General > Your apps > SDK setup and config)
   const firebaseConfig = {
     apiKey: "AIzaSyASx65vcnHFbI1Xn_LiX2g1HsWHzr5VGxE",
     authDomain: "dash-ba3b9.firebaseapp.com",
@@ -74,7 +73,6 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // One session id per visit, kept for the life of the tab only (no persistent tracking across visits).
   const sessionId = crypto.randomUUID();
   const sessionRef = doc(db, "letter_sessions", sessionId);
   const t0 = Date.now();
@@ -86,7 +84,6 @@
     return ms;
   }
 
-  // Exposed to the React app below (babel/non-module script) via window.
   window.__letterSession = {
     id: sessionId,
 
@@ -247,7 +244,15 @@ function IntroStage({ onBegin }) {
 }
 
 /* ---------- trivia quiz ---------- */
-const QUESTIONS = [
+function shuffleArr(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const RAW_QUESTIONS = [
   { q: "What's my full name?", options: ["Promedi Ngimbi","Promedi Kalonji","Promedi Mbiya","Promedi Kasoma"], answer: "Promedi Ngimbi" },
   { q: "When is my birthday?", options: ["November 6","October 6","November 9","December 6"], answer: "November 6" },
   { q: "My favorite colors?", options: ["Red & Pink","Blue & Black","Green & Gold","Purple & White"], answer: "Red & Pink" },
@@ -274,6 +279,7 @@ const QUESTIONS = [
   { q: "PS5 or Xbox?", options: ["PS5","Xbox"], answer: "PS5" },
   { q: "PS5 or PC?", options: ["PC","PS5"], answer: "PC" },
 ];
+const QUESTIONS = RAW_QUESTIONS.map(q => ({ ...q, options: shuffleArr(q.options) }));
 function QuizStage({ onComplete }) {
   const [idx, setIdx] = useState(0), [selected, setSelected] = useState(null), [locked, setLocked] = useState(false), [score, setScore] = useState(0);
   const [log, setLog] = useState([]);
