@@ -336,10 +336,30 @@ function QuizStage({ onComplete }) {
 
 /* ---------- reflections ---------- */
 const PROMPTS = [
-  { key: "like", label: "What do you like about me?", placeholder: "Tell me in your own words…" },
+  { key: "like", label: "What do you like about me?", placeholder: "Tell me in your own words…", section: "About Us" },
   { key: "memory", label: "What is your favorite memory about us?", placeholder: "The one you keep going back to…" },
   { key: "learned", label: "What's one thing you learned about our relationship?", placeholder: "Something real you realized…" },
   { key: "wish", label: "What's one wish you have that you never told me?", placeholder: "You can say it now, it's safe here…" },
+  { key: "alwaysWantedTogether", label: "What is something you always wanted us to do together?", placeholder: "…" },
+  { key: "missMost", label: "What do you miss most about our relationship?", placeholder: "…" },
+  { key: "favoriteMemoryOfUs", label: "What is your favorite memory of us?", placeholder: "…" },
+  { key: "relive", label: "If we could relive one moment together, which one would you choose?", placeholder: "…" },
+  { key: "valuedMost", label: "What did you value most about our relationship?", placeholder: "…" },
+
+  { key: "makesHappy", label: "What is something you think always makes me happy?", placeholder: "…", section: "About You (Guessing Me)" },
+  { key: "annoys", label: "What is something you know really annoys me?", placeholder: "…" },
+  { key: "passionate", label: "What do you think I'm most passionate about?", placeholder: "…" },
+  { key: "talkForHours", label: "What is something you think I could talk about for hours?", placeholder: "…" },
+  { key: "improving", label: "What is something you think I'm trying to improve about myself?", placeholder: "…" },
+
+  { key: "spend1000", label: "If I suddenly got $1,000, what do you think I would spend it on first?", placeholder: "…", section: "If You Really Know Me" },
+  { key: "travelAnywhere", label: "If I could travel anywhere right now, where do you think I would go?", placeholder: "…" },
+  { key: "gameForHours", label: "What game do you think I could play for hours without getting bored?", placeholder: "…" },
+  { key: "lateNightMeal", label: "What do you think I'd choose for a late-night meal?", placeholder: "…" },
+  { key: "famousFirst", label: "If I suddenly became famous, what do you think I'd do first?", placeholder: "…" },
+
+  { key: "wishDifferently", label: "What do you think I wish I had done differently between us?", placeholder: "…", section: "One Last Thing" },
+  { key: "understandFeelings", label: "What is something you think I want you to understand about how I feel?", placeholder: "…" },
 ];
 function ReflectionsStage({ onComplete }) {
   const [answers, setAnswers] = useState({});
@@ -352,11 +372,16 @@ function ReflectionsStage({ onComplete }) {
       </div>
       <div className="space-y-5">
         {PROMPTS.map((p, i) => (
-          <div key={p.key} className="anim-fadeUp" style={{ animationDelay: `${i * 0.1}s` }}>
-            <label className="block font-display text-lg sm:text-xl text-[#FF85A1] mb-2">{p.label}</label>
-            <textarea value={answers[p.key] || ""} onChange={e => setAnswers(a => ({ ...a, [p.key]: e.target.value }))} placeholder={p.placeholder} rows={3}
-              className="w-full px-4 py-3 rounded-2xl bg-[#0D070B]/60 border border-[#381E2B] focus:border-[#E62E5C] focus:ring-1 focus:ring-[#E62E5C] outline-none text-[#FFF2F5] text-base placeholder:text-[#5a4750] resize-none transition-colors" />
-          </div>
+          <React.Fragment key={p.key}>
+            {p.section && (
+              <p className="pt-2 text-xs tracking-[0.2em] uppercase text-[#E62E5C] font-semibold">{p.section}</p>
+            )}
+            <div className="anim-fadeUp" style={{ animationDelay: `${Math.min(i, 6) * 0.08}s` }}>
+              <label className="block font-display text-lg sm:text-xl text-[#FF85A1] mb-2">{p.label}</label>
+              <textarea value={answers[p.key] || ""} onChange={e => setAnswers(a => ({ ...a, [p.key]: e.target.value }))} placeholder={p.placeholder} rows={3}
+                className="w-full px-4 py-3 rounded-2xl bg-[#0D070B]/60 border border-[#381E2B] focus:border-[#E62E5C] focus:ring-1 focus:ring-[#E62E5C] outline-none text-[#FFF2F5] text-base placeholder:text-[#5a4750] resize-none transition-colors" />
+            </div>
+          </React.Fragment>
         ))}
       </div>
       <div className="mt-8 flex flex-col items-center">
